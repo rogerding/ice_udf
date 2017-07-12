@@ -32,3 +32,38 @@ udftest.ice_to_char(time,'Q') as col30
 from udftest.pos_tbl
 limit 5;
 
+select
+col1 as original,
+udftest.ice_to_char(col1,'SSSS') as col1,
+udftest.ice_to_char(col1,'SSSS.SS') as col2,
+udftest.ice_to_char(col1,'SSSS-YY') as col3,
+udftest.ice_to_char(col1,'HH:MM') as col4,
+udftest.ice_to_char(col1,'MI') as col5,
+udftest.ice_to_char(col1,'SS') as col6,
+udftest.ice_to_char(col1,'YYYY') as col7,
+udftest.ice_to_char(col1,'HH24') as col8,
+udftest.ice_to_char(col1,'J') as col9,
+udftest.ice_to_char(col1,'JJ') as col10,
+udftest.ice_to_char(col1,'SSJ') as col11,
+udftest.ice_to_char(col1,'MM') as col12,
+udftest.ice_to_char(col1,'DDDD') as col13,
+udftest.ice_to_char(col1,'YYMMDD') as col14,
+udftest.ice_to_char(col1,'YYDDMM') as col15,
+udftest.ice_to_char(col1,'HH12') as col16,
+udftest.ice_to_char(col1,'RM') as col17,
+udftest.ice_to_char(col1,'rm') as col18,
+udftest.ice_to_char(col1,'YYYY-MM-DD HH:MI:SS.SSSS AM') as col19,
+udftest.ice_to_char(col1,'YYYY-MM-DD HH:MI:SS.SSSS a.m') as col20,
+udftest.ice_to_char(col1,'YYYY-month-DD') as col21,
+udftest.ice_to_char(col1,'YYYY-MON-DD') as col22,
+udftest.ice_to_char(col1,'SSSS-YY') as col23,
+udftest.ice_to_char(col1,'YYYY-MM,DAY') as col24,
+udftest.ice_to_char(col1,'YYYY-MONTH-DY') as col25,
+udftest.ice_to_char(col1,'YYYY-MONTH-dy') as col26,
+udftest.ice_to_char(col1,'DDD') as col27,
+udftest.ice_to_char(col1,'HH24') as col28,
+udftest.ice_to_char(col1,'CC') as col29,
+udftest.ice_to_char(col1,'Q') as col30
+from udftest.err_tbl
+;
+

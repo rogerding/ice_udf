@@ -1170,9 +1170,6 @@ copy_value(
             for (int i = 0; i < tot; i++) {
                 char c = format[i];
                 if (c == '.') {
-                    if (i == (tot - 1)) {
-                        format[i] = '\0';
-                    }
                     j = i + 1;
                     break;
                 }
