@@ -217,3 +217,12 @@ insert into formats select '2010-10-10 10:10:10' , 'DDD' ;
 insert into formats select '2010-10-10 10:10:10' , 'CC' ;
 insert into formats select '2010-10-10 10:10:10' , 'J' ;
 insert into formats select '2010-10-10 10:10:10' , 'Q' ;
+
+
+
+CREATE TABLE udftest.decimal_tbl (
+   col1 DECIMAL(18,6)
+)
+STORED AS TEXTFILE;
+insert into decimal_tbl values (1), (1.1), (1.11111), (1.8), (1000000000.888888);
+insert into decimal_tbl values(-922337203685.999999), (922372036853.99999), (1000000000.8000);

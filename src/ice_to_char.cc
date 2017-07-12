@@ -93,6 +93,7 @@
 #define NUM_MAX_ITEM_SIZ 8
 
 #define FORMAT_STRING_LEN_MAX 50
+#define DECIMAL_FORMAT_STRING_LEN_MAX 38
 
 // STRUCTs
 typedef struct {
@@ -932,27 +933,6 @@ seq_search(char *name, const char *const *array, int type, int max,
     return -1;
 }
 
-//static void
-//from_char_set_int(int* dest, const int value, const FND* node,FunctionContext* context)
-//{
-//    if (*dest != 0 && *dest != value)
-//ctx->SetError("ERRCODE_INVALID_DATETIME_FORMAT. This value contradics a previous setting for same fields type");
-//    context->SetError("ERRCODE_INVALID_DATETIME_FORMAT. This value contradics a previous setting for same fields type");
-//    *dest = value;
-//}
-
-//static int
-//strspace_len(const char* str)
-//{
-//    int len = 0;
-
-//    while (*str && isspace((unsigned char)*str)) {
-//        str++;
-//        len++;
-//    }
-//    return len;
-//}
-
 static bool is_next_separator(FND *n) {
     if (n->type == N_END)
         return FALSE;
@@ -981,15 +961,6 @@ void get_int_value(int i, char *result, char *signValue) {
     i < 0 ? *signValue = '-' : *signValue = ' ';
 
     sprintf(result, "%d", i);
-}
-
-
-double my_round(double x, unsigned int digits) {
-    if (digits > 0) {
-        return my_round(x * 10.0, digits - 1) / 10.0;
-    } else {
-        return round(x);
-    }
 }
 
 
@@ -1032,10 +1003,10 @@ void get_double_value(double d, int afterDecimal,
             sprintf(result, "%50.10f", d);
             break;
         case 11:
-            sprintf(result, "%50.11", d);
+            sprintf(result, "%50.11f", d);
             break;
         Default:
-            sprintf(result, "%50.12", d);
+            sprintf(result, "%50.12f", d);
             break;
     }
 }
@@ -1061,18 +1032,15 @@ bool checkSpecialCase(char *in, int afterDecimal) {
 
 void
 get_decimal_value(
-        int64_t val,
-        int32_t scale,
-        int afterDecimal,
-        char *result,
-        char *signValue
+        int64_t val,        // in: decimal value, 64 bit
+        int32_t scale,      // in: scale in decimal value
+        int afterDecimal,   // in: how many digits after "." in output
+        char *result,       // Out: result string
+        char *signValue     // Out: + or - sign
 ) {
-    char msg[50];
     bool isSpecialCase = false; // all 9s in fractional_part
     int64_t whole_part;
     int64_t fractional_part;
-
-    memset(msg, 0, sizeof(msg));
 
     val < 0 ? *signValue = '-' : *signValue = ' ';
 
@@ -1082,7 +1050,7 @@ get_decimal_value(
     }
 
 
-    char fractional_str[39];
+    char fractional_str[FORMAT_STRING_LEN_MAX + 1];  // scale
     memset(fractional_str, 0, sizeof(fractional_str));
 
     int fractional_part_digit = 0;
@@ -1135,12 +1103,10 @@ parse_format_string(
         int *total,         // out: format string length
         int *afterDecimal,  // out: # of digits after decimal
         int *beforeDecimal, // out: # of digits before decimal, include zerofill
-        int *zerofill,      // out: # of zero fill digits
-        char *retval
+        int *zerofill       // out: # of zero fill digits
 ) {
-    int numSign = 0;
     int numChar = 0;
-    int numDecimal = 0;
+    bool isDecimal = false;
     int numInvalidDigit = 0;
     int numNineAfterDecimal = 0;
     int numZeroAfterDecimal = 0;
@@ -1151,15 +1117,15 @@ parse_format_string(
     for (int i = 0; i < tot; i++) {
         char c = format[i];
         if (c == '.')
-            numDecimal++;
+            isDecimal = true;
         if (c >= ' ' && c <= '~')
             numChar++;
         if (c > '0' && c < '9')
             numInvalidDigit++;
         if (c == '0')
-            numDecimal == 0 ? numZeroBeforeDecimal++ : numZeroAfterDecimal++;
+            (isDecimal == false) ? numZeroBeforeDecimal++ : numZeroAfterDecimal++;
         if (c == '9')
-            numDecimal == 0 ? numNineBeforeDecimal++ : numNineAfterDecimal++;
+            (isDecimal == false) ? numNineBeforeDecimal++ : numNineAfterDecimal++;
     }
     *total = tot;
     *zerofill = numZeroBeforeDecimal;
@@ -1171,7 +1137,8 @@ parse_format_string(
 
 void
 copy_value(
-        int intOrDouble,
+        //int intOrDouble,  // 1 -> int; 2 -> double/decimal
+        bool isInt,     // if ture -> int; false -> double/decimal
         char *value,
         char *format,
         int afterDecimal,
@@ -1183,7 +1150,7 @@ copy_value(
 
     // If int, should automatically ignore the decimal part if included in format
     // (for example, 999,999,999,999,999.99 => 999,999,999,999,999)
-    if (intOrDouble == 1) {
+    if (isInt) {
         for (int i = 0; i < tot; i++) {
             char c = format[i];
             if (c == '.') {
@@ -1215,7 +1182,7 @@ copy_value(
             tot = strlen(format);
 
             // validate decimal format, must be .99999...
-            // otherwise, ignore
+            // otherwise, ignore. for example: ".989798" will be convert to ".999"
             int k1 = j;
             for (int k2 = 0; k2 < afterDecimal; k2++) {
                 format[k1] = '9';
@@ -1242,7 +1209,7 @@ copy_value(
 
     if (afterDecimal > 0) {
         for (int i = resultPtr; i >= tot - afterDecimal - 1; i--) {
-            if (intOrDouble == 1) {
+            if (isInt) {
                 result[resultPtr] = '0';
                 resultPtr--;
             } else {
@@ -1251,7 +1218,7 @@ copy_value(
                 valuePtr--;
             }
         }
-        if (intOrDouble == 1) {
+        if (isInt) {
             result[resultPtr + 1] = '.';
         }
     }
@@ -1326,6 +1293,10 @@ ice_to_char_decimal(
         context->SetError("format string length can not great than FORMAT_STRING_LEN_MAX(50)");
         return StringVal::null();
     }
+    if (scale.val > DECIMAL_FORMAT_STRING_LEN_MAX) {
+        context->SetError("DECIMAL data SCALE value can not great than DECIMAL_FORMAT_STRING_LEN_MAX(38)");
+        return StringVal::null();
+    }
     try {
         char format[FORMAT_STRING_LEN_MAX+1];
         char msg[100];
@@ -1341,14 +1312,14 @@ ice_to_char_decimal(
                 digitsBeforeDecimal,
                 zerofill;
         if (parse_format_string(format, &total, &afterDecimal, &digitsBeforeDecimal,
-                                &zerofill, msg)
+                                &zerofill)
             == 0) {
             char signValue;
             char valueStr[100];
 
             get_decimal_value(val64, scale.val, afterDecimal, valueStr, &signValue);
 
-            copy_value(2, valueStr, format, afterDecimal, zerofill, signValue, msg);
+            copy_value(false, valueStr, format, afterDecimal, zerofill, signValue, msg);
         }
 
         StringVal result(context, strlen(msg));
@@ -1357,7 +1328,6 @@ ice_to_char_decimal(
     }
     catch (std::exception &e) {
         string message = e.what();
-        //ctx->SetError(message.c_str());
         context->SetError(message.c_str());
         return StringVal::null();
     }
@@ -1369,7 +1339,6 @@ StringVal ice_to_char_double(
         FunctionContext *context,
         const DoubleVal &valueDbl,
         const StringVal &formatStr) {
-    //ctx = context;
     try {
         if (valueDbl.is_null || formatStr.is_null) {
             context->SetError("format string or value can not be NULL");
@@ -1393,12 +1362,12 @@ StringVal ice_to_char_double(
                 digitsBeforeDecimal,
                 zerofill;
         if (parse_format_string(format, &total, &afterDecimal, &digitsBeforeDecimal,
-                                &zerofill, msg)
+                                &zerofill)
             == 0) {
             char signValue;
             char valueStr[100];
             get_double_value(value, afterDecimal, valueStr, &signValue);
-            copy_value(2, valueStr, format, afterDecimal, zerofill,
+            copy_value(false, valueStr, format, afterDecimal, zerofill,
                        signValue, msg);
         }
 
@@ -1442,12 +1411,12 @@ StringVal ice_to_char_int(
                 digitsBeforeDecimal,
                 zerofill;
         if (parse_format_string(format, &total, &afterDecimal, &digitsBeforeDecimal,
-                                &zerofill, msg)
+                                &zerofill)
             == 0) {
             char signValue;
             char valueStr[100];
             get_int_value(value, valueStr, &signValue);
-            copy_value(1, valueStr, format, afterDecimal, zerofill,
+            copy_value(true, valueStr, format, afterDecimal, zerofill,
                        signValue, msg);
         }
 
@@ -1457,7 +1426,6 @@ StringVal ice_to_char_int(
     }
     catch (std::exception &e) {
         string message = e.what();
-        //ctx->SetError(message.c_str());
         context->SetError(message.c_str());
         return StringVal::null();
     }
