@@ -224,5 +224,5 @@ CREATE TABLE udftest.decimal_tbl (
    col1 DECIMAL(18,6)
 )
 STORED AS TEXTFILE;
-insert into decimal_tbl values (1), (1.1), (1.11111), (1.8), (1000000000.888888);
+insert into decimal_tbl values (1), (1.1), (1.11111), (1.8), (1000000000.888888), (0), (-0);
 insert into decimal_tbl values(-922337203685.999999), (922372036853.99999), (1000000000.8000);
