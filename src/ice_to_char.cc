@@ -1089,7 +1089,11 @@ get_decimal_value(
     }
 
     // copy to result
-    sprintf(result, "%39lld", whole_part);
+    if ( (val < 0) && (whole_part == 0) ) {
+        strcpy(result, "-0");
+    } else {
+        sprintf(result, "%39lld", whole_part);
+    }
     if (afterDecimal > 0) {
         strcat(result, ".");
         strcat(result, fractional_str);
@@ -1138,14 +1142,36 @@ parse_format_string(
 void
 copy_value(
         //int intOrDouble,  // 1 -> int; 2 -> double/decimal
-        bool isInt,     // if ture -> int; false -> double/decimal
-        char *value,
-        char *format,
-        int afterDecimal,
-        int zerofill,
-        char signValue,
-        char *result
+        bool isInt,             // IN: if ture -> int; false -> double/decimal
+        char *value_withSign,   // IN: input value; string length: FORMAT_STRING_LEN_MAX+1
+        char *format,           // IN: format string; string max length: FORMAT_STRING_LEN_MAX
+        int afterDecimal,       // IN: number of digits after decimal(.)
+        int zerofill,           // IN: number of leading "0" padding digits
+        char signValue,         // IN: ' ' OR '-'
+        char *finalResult       // OUT: result, string length: FORMAT_STRING_LEN_MAX+2
 ) {
+    char value[FORMAT_STRING_LEN_MAX+1];
+    char result[FORMAT_STRING_LEN_MAX+1];
+
+    memset(value, 0, sizeof(value));
+    memset(result, 0, sizeof(result));
+
+    // remove leading space
+    int index = 0;
+    for (index = 0; index < strlen(value_withSign), value_withSign[index] == ' '; index++) {}
+    if (index == strlen(value_withSign)) {
+        finalResult[0] = '\0';
+        return;
+    }
+
+    // skip the '-' sign
+    if (signValue == '-') {
+        strcpy(value, value_withSign + index + 1);
+    } else
+    {
+        strcpy(value, value_withSign + index);
+    }
+
     int tot = strlen(format);
 
     // If int, should automatically ignore the decimal part if included in format
@@ -1175,9 +1201,6 @@ copy_value(
                 }
             }
 
-            // recalculate format strlen
-            tot = strlen(format);
-
             // validate decimal format, must be .99999...
             // otherwise, ignore. for example: ".989798" will be convert to ".999"
             int k1 = j;
@@ -1187,6 +1210,7 @@ copy_value(
             }
             format[k1] = '\0';
 
+            // recalculate format strlen
             tot = strlen(format);
         } else {   // afterDecimal == 0
             for (int i = 0; i < tot; i++) {
@@ -1233,21 +1257,24 @@ copy_value(
                     valuePtr--;
                 }
             }
-            if (found == 0)
+            if (found == 0) {
                 result[resultPtr] = '0';
+            }
         } else if (format[i] >= '1' && format[i] <= '9') {
             if (valuePtr >= 0) {
                 if (value[valuePtr] == '+' || value[valuePtr] == '-'
-                    || (value[valuePtr] >= '0'
-                        && value[valuePtr] <= '9')) {
+                    || (value[valuePtr] >= '0' && value[valuePtr] <= '9'))
+                {
                     result[resultPtr] = value[valuePtr];
                     valuePtr--;
                     found = 1;
                 }
             }
-            if (found == 0)
-                result[resultPtr] = ' ';
-        } else {
+            if (found == 0) {
+                zerofill > 0 ? result[resultPtr] = '0' : result[resultPtr] = ' ';
+
+            }
+        } else { // "," sign
             if (valuePtr >= 0) {
                 if (value[valuePtr] >= '0' && value[valuePtr] <= '9') {
                     result[resultPtr] = ',';
@@ -1259,15 +1286,26 @@ copy_value(
                     found = 1;
                 }
             }
-            if (found == 0)
-                zerofill > 0 ? result[resultPtr] = '0' : result[resultPtr] = ' ';
+            if (found == 0) {
+                zerofill > 0 ? result[resultPtr] = ',' : result[resultPtr] = ' ';
+            }
         }
         resultPtr--;
     }
 
     result[tot] = '\0';
-    if (zerofill != 0 && signValue == '-')
-        result[0] = signValue;
+
+    // remove leading space
+    index = 0;
+    for (index = 0; index < strlen(result), result[index] == ' '; index++) {}
+
+    if (signValue == '-') {
+        finalResult[0]='-';
+    }
+    strcat(finalResult, result + index);
+
+//    if (zerofill != 0 && signValue == '-')
+//        result[0] = signValue;
 }
 
 
@@ -1296,7 +1334,7 @@ ice_to_char_decimal(
     }
     try {
         char format[FORMAT_STRING_LEN_MAX+1];
-        char msg[100];
+        char msg[FORMAT_STRING_LEN_MAX+2];
 
         memset(format, 0, sizeof(format));
         memset(msg, 0, sizeof(msg));
@@ -1312,8 +1350,9 @@ ice_to_char_decimal(
                                 &zerofill)
             == 0) {
             char signValue;
-            char valueStr[100];
+            char valueStr[FORMAT_STRING_LEN_MAX+1];
 
+            memset(valueStr, 0, sizeof(valueStr));
             get_decimal_value(val64, scale.val, afterDecimal, valueStr, &signValue);
 
             copy_value(false, valueStr, format, afterDecimal, zerofill, signValue, msg);
@@ -1347,7 +1386,7 @@ StringVal ice_to_char_double(
         }
 
         char format[FORMAT_STRING_LEN_MAX+1];
-        char msg[500];
+        char msg[FORMAT_STRING_LEN_MAX+2];
         memset(format, 0, sizeof(format));
         memset(msg, 0, sizeof(msg));
 
@@ -1362,7 +1401,9 @@ StringVal ice_to_char_double(
                                 &zerofill)
             == 0) {
             char signValue;
-            char valueStr[100];
+            char valueStr[FORMAT_STRING_LEN_MAX+1];
+            memset(valueStr, 0, sizeof(valueStr));
+
             get_double_value(value, afterDecimal, valueStr, &signValue);
             copy_value(false, valueStr, format, afterDecimal, zerofill,
                        signValue, msg);
@@ -1396,7 +1437,7 @@ StringVal ice_to_char_int(
 
 
         char format[FORMAT_STRING_LEN_MAX + 1];
-        char msg[500];
+        char msg[FORMAT_STRING_LEN_MAX+2];
         memset(format, 0, sizeof(format));
         memset(msg, 0, sizeof(msg));
 
@@ -1411,7 +1452,9 @@ StringVal ice_to_char_int(
                                 &zerofill)
             == 0) {
             char signValue;
-            char valueStr[100];
+            char valueStr[FORMAT_STRING_LEN_MAX+1];
+            memset(valueStr, 0, sizeof(valueStr));
+
             get_int_value(value, valueStr, &signValue);
             copy_value(true, valueStr, format, afterDecimal, zerofill,
                        signValue, msg);
