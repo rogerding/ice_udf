@@ -1228,6 +1228,7 @@ copy_value(
     int resultPtr = tot - 1;
     int valuePtr = strlen(value) - 1;
 
+    // decimal part
     if (afterDecimal > 0) {
         for (int i = resultPtr; i >= tot - afterDecimal - 1; i--) {
             if (isInt) {
@@ -1244,6 +1245,7 @@ copy_value(
         }
     }
 
+    // whole part
     for (int i = resultPtr; i >= 0; i--) {
         int found = 0;
         if (format[i] == '0') {
@@ -1272,7 +1274,6 @@ copy_value(
             }
             if (found == 0) {
                 zerofill > 0 ? result[resultPtr] = '0' : result[resultPtr] = ' ';
-
             }
         } else { // "," sign
             if (valuePtr >= 0) {
@@ -1308,6 +1309,31 @@ copy_value(
 //        result[0] = signValue;
 }
 
+bool checkFormatAndValueString(
+        char    *valueStr,
+        int     numOfWholeDigitsInFormatString
+)
+{
+    bool isValid = false;
+
+    // skip leading space
+    int index = 0;
+    int count = 0;
+    for (index = 0; index < strlen(valueStr), valueStr[index] == ' '; index++) {}
+    while (index < strlen(valueStr)) {
+        if (valueStr[index] == '-') {
+            index++;
+        } else if (valueStr[index] != '.') {
+            count++;
+            index++;
+        } else if (valueStr[index] == '.') {
+            break;
+        }
+    }
+
+    isValid = (count <= numOfWholeDigitsInFormatString) ? true : false;
+    return isValid;
+}
 
 // support precision upto 18
 // whole_part range supported : -9223372036853 to 9223372036853 if scale = 6.
@@ -1355,7 +1381,14 @@ ice_to_char_decimal(
             memset(valueStr, 0, sizeof(valueStr));
             get_decimal_value(val64, scale.val, afterDecimal, valueStr, &signValue);
 
-            copy_value(false, valueStr, format, afterDecimal, zerofill, signValue, msg);
+            // check if format string is valid or not (based on valueStr and signValue)
+            bool isFormatValid = checkFormatAndValueString(valueStr, digitsBeforeDecimal);
+            if (isFormatValid) {
+                copy_value(false, valueStr, format, afterDecimal, zerofill, signValue, msg);
+            }
+            else {
+                strcpy(msg, "ERROR: wrong format string");
+            }
         }
 
         StringVal result(context, strlen(msg));
@@ -1405,8 +1438,14 @@ StringVal ice_to_char_double(
             memset(valueStr, 0, sizeof(valueStr));
 
             get_double_value(value, afterDecimal, valueStr, &signValue);
-            copy_value(false, valueStr, format, afterDecimal, zerofill,
-                       signValue, msg);
+            bool isFormatValid = checkFormatAndValueString(valueStr, digitsBeforeDecimal);
+            if (isFormatValid) {
+                copy_value(false, valueStr, format, afterDecimal, zerofill,
+                           signValue, msg);
+            } else {
+                strcpy(msg, "ERROR: wrong format string");
+            }
+
         }
 
         StringVal result(context, strlen(msg));
@@ -1456,8 +1495,13 @@ StringVal ice_to_char_int(
             memset(valueStr, 0, sizeof(valueStr));
 
             get_int_value(value, valueStr, &signValue);
-            copy_value(true, valueStr, format, afterDecimal, zerofill,
+            bool isFormatValid = checkFormatAndValueString(valueStr, digitsBeforeDecimal);
+            if (isFormatValid) {
+                copy_value(true, valueStr, format, afterDecimal, zerofill,
                        signValue, msg);
+            } else {
+                strcpy(msg, "ERROR: wrong format string");
+            }
         }
 
         StringVal result(context, strlen(msg));
@@ -1474,7 +1518,7 @@ StringVal ice_to_char_int(
 
 
 //************************************************************************************
-//           ice_to_char: BEGIN 
+//           ice_to_char: BEGIN
 //************************************************************************************
 
 
@@ -1543,5 +1587,5 @@ ice_to_char(FunctionContext *context,
 }
 
 //************************************************************************************
-//           ice_to_char: END 
+//           ice_to_char: END
 //************************************************************************************

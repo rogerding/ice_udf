@@ -226,3 +226,11 @@ CREATE TABLE udftest.decimal_tbl (
 STORED AS TEXTFILE;
 insert into decimal_tbl values (1), (1.1), (1.11111), (1.8), (1000000000.888888), (0), (-0);
 insert into decimal_tbl values(-922337203685.999999), (922372036853.99999), (1000000000.8000);
+
+
+create table if not exists udftest.number_tbl(
+    col_int int,
+    col_double double
+);
+insert into table udftest.number_tbl values (1, 1.1), (12, 12.12), (123, 123.123), (123456, 123456.123456),
+(1000000000, 1000000000.888888), (1000000000, 1000000000.111111);
