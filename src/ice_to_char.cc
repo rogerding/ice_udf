@@ -1341,11 +1341,11 @@ StringVal
 ice_to_char_decimal(
         FunctionContext *context,
         const DecimalVal &valueDecimal,
-        const IntVal &scale,
         const StringVal &formatStr
 ) {
     int64_t val64;
-    //ctx = context;
+    int scale = context->GetArgType(0)->scale;
+
     if (valueDecimal.is_null || formatStr.is_null) {
         context->SetError("format string or value can not be NULL");
         return StringVal::null();
@@ -1354,7 +1354,7 @@ ice_to_char_decimal(
         context->SetError("format string length can not great than FORMAT_STRING_LEN_MAX(50)");
         return StringVal::null();
     }
-    if (scale.val > DECIMAL_FORMAT_STRING_LEN_MAX) {
+    if (scale > DECIMAL_FORMAT_STRING_LEN_MAX) {
         context->SetError("DECIMAL data SCALE value can not great than DECIMAL_FORMAT_STRING_LEN_MAX(38)");
         return StringVal::null();
     }
@@ -1379,7 +1379,7 @@ ice_to_char_decimal(
             char valueStr[FORMAT_STRING_LEN_MAX+1];
 
             memset(valueStr, 0, sizeof(valueStr));
-            get_decimal_value(val64, scale.val, afterDecimal, valueStr, &signValue);
+            get_decimal_value(val64, scale, afterDecimal, valueStr, &signValue);
 
             // check if format string is valid or not (based on valueStr and signValue)
             bool isFormatValid = checkFormatAndValueString(valueStr, digitsBeforeDecimal);
